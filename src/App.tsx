@@ -1,8 +1,140 @@
-import React, { Suspense, useState } from "react";
-import { motion } from "motion/react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Stage } from "@react-three/drei";
-import sceneUrl from "./assets/scene.gltf?url";
+import cupModelUrl from "./assets/CupForWeb.glb?url";
+import loaderVideoUrl from "./assets/loader.webm?url";
+
+function ModelWrapper({
+  children,
+  onLoaded,
+}: {
+  children: React.ReactNode;
+  onLoaded: () => void;
+}) {
+  const called = useRef(false);
+  useEffect(() => {
+    if (!called.current) {
+      called.current = true;
+      onLoaded();
+    }
+  }, [onLoaded]);
+  return <>{children}</>;
+}
+
+function LoadingScreen({
+  progress,
+  onComplete,
+}: {
+  progress: number;
+  onComplete: () => void;
+}) {
+  const prevProgress = useRef(0);
+  useEffect(() => {
+    if (progress >= 100 && prevProgress.current < 100) {
+      const t = setTimeout(onComplete, 400);
+      return () => clearTimeout(t);
+    }
+    prevProgress.current = progress;
+  }, [progress, onComplete]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "linear-gradient(135deg, #0a0a0a 0%, #190a27 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: 200,
+          height: 200,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Progress ring */}
+        <svg
+          width={200}
+          height={200}
+          style={{ position: "absolute", transform: "rotate(-90deg)" }}
+        >
+          <circle
+            cx={100}
+            cy={100}
+            r={94}
+            fill="none"
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth={6}
+          />
+          <motion.circle
+            cx={100}
+            cy={100}
+            r={94}
+            fill="none"
+            stroke="rgba(255,255,255,0.5)"
+            strokeWidth={6}
+            strokeLinecap="round"
+            strokeDasharray={2 * Math.PI * 94}
+            initial={{ strokeDashoffset: 2 * Math.PI * 94 }}
+            animate={{ strokeDashoffset: 2 * Math.PI * 94 * (1 - progress / 100) }}
+            transition={{ duration: 0.2 }}
+          />
+        </svg>
+        {/* Circle clip for video */}
+        <div
+          style={{
+            position: "relative",
+            width: 160,
+            height: 160,
+            borderRadius: "50%",
+            overflow: "hidden",
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <video
+            src={loaderVideoUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        </div>
+        {/* Progress percentage */}
+        <span
+          style={{
+            position: "absolute",
+            bottom: -28,
+            left: "50%",
+            transform: "translateX(-50%)",
+            color: "rgba(255,255,255,0.6)",
+            fontSize: "0.9rem",
+          }}
+        >
+          {Math.round(progress)}%
+        </span>
+      </div>
+    </motion.div>
+  );
+}
 
 function RegistrationButton() {
   const [hover, setHover] = useState(false);
@@ -30,9 +162,9 @@ function RegistrationButton() {
 }
 
 function Model() {
-  const { scene } = useGLTF(sceneUrl);
+  const { scene } = useGLTF(cupModelUrl);
   return (
-    <group position={[0.6, 0, -2]}>
+    <group position={[0.6, 0, -4]}>
       <primitive
         object={scene}
         scale={0.12}
@@ -44,17 +176,42 @@ function Model() {
 }
 
 export default function App() {
+  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+
+  // Simulate progress 0 → 85% over ~2.5s while loading
+  useEffect(() => {
+    if (!loading || progress >= 85) return;
+    const step = 85 / 50;
+    const interval = setInterval(() => {
+      setProgress((p) => {
+        const next = p + step;
+        return next >= 85 ? 85 : next;
+      });
+    }, 50);
+    return () => clearInterval(interval);
+  }, [loading, progress]);
+
+  const handleModelLoaded = () => setProgress(100);
+  const handleLoadingComplete = () => setLoading(false);
+
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        background: "linear-gradient(135deg, #0a0a0a 0%, #190a27 100%)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
+    <>
+      <AnimatePresence mode="wait">
+        {loading && (
+          <LoadingScreen progress={progress} onComplete={handleLoadingComplete} />
+        )}
+      </AnimatePresence>
+
+      <div
+        style={{
+          width: "100vw",
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #0a0a0a 0%, #190a27 100%)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
       {/* Top nav bar */}
       <nav
         style={{
@@ -82,8 +239,8 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Main content */}
-      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+      {/* Hero */}
+      <div style={{ height: "calc(100vh - 88px)", position: "relative", flexShrink: 0 }}>
       {/* Huge title behind the mug */}
       <div
         style={{
@@ -128,14 +285,111 @@ export default function App() {
       >
         <Canvas dpr={[1, 2]} camera={{ fov: 90 }} gl={{ alpha: true }}>
           <Suspense fallback={null}>
-            <Stage environment="city" intensity={0.6}>
-              <Model />
-            </Stage>
+            <ModelWrapper onLoaded={handleModelLoaded}>
+              <Stage environment="city" intensity={0.6}>
+                <Model />
+              </Stage>
+            </ModelWrapper>
           </Suspense>
           <OrbitControls enableZoom={false} enablePan={false} />
         </Canvas>
       </div>
       </div>
+
+      {/* Sections */}
+      <section
+        id="program"
+        style={{
+          padding: "4rem 5%",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <h2 style={{ margin: "0 0 1.5rem", color: "rgba(255,255,255,0.9)", fontSize: "1.75rem" }}>
+          Программа
+        </h2>
+        <h3 style={{ margin: "0 0 0.75rem", color: "rgba(255,255,255,0.7)", fontSize: "1.2rem" }}>
+          Расписание
+        </h3>
+        <p style={{ margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: "60ch" }}>
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+        </p>
+        <h3 style={{ margin: "2.5rem 0 0.75rem", color: "rgba(255,255,255,0.7)", fontSize: "1.2rem" }}>
+          Формат
+        </h3>
+        <p style={{ margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: "60ch" }}>
+          Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+        </p>
+      </section>
+
+      <section
+        id="rules"
+        style={{
+          padding: "4rem 5%",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <h2 style={{ margin: "0 0 1.5rem", color: "rgba(255,255,255,0.9)", fontSize: "1.75rem" }}>
+          Правила участия
+        </h2>
+        <p style={{ margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: "60ch" }}>
+          Placeholder text for rules. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+        </p>
+      </section>
+
+      <section
+        id="team-chat"
+        style={{
+          padding: "4rem 5%",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <h2 style={{ margin: "0 0 1.5rem", color: "rgba(255,255,255,0.9)", fontSize: "1.75rem" }}>
+          Чат для поиска команды
+        </h2>
+        <p style={{ margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: "60ch" }}>
+          Placeholder text for team chat. Специально созданный чат для поиска команды на джем.
+        </p>
+      </section>
+
+      <section
+        id="partners"
+        style={{
+          padding: "4rem 5%",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <h2 style={{ margin: "0 0 1.5rem", color: "rgba(255,255,255,0.9)", fontSize: "1.75rem" }}>
+          Партнёры и контакты
+        </h2>
+        <h3 style={{ margin: "0 0 0.75rem", color: "rgba(255,255,255,0.7)", fontSize: "1.2rem" }}>
+          Партнёры
+        </h3>
+        <p style={{ margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: "60ch" }}>
+          Placeholder: информация о партнёрах мероприятия. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+        </p>
+        <h3 style={{ margin: "2.5rem 0 0.75rem", color: "rgba(255,255,255,0.7)", fontSize: "1.2rem" }}>
+          Контакты организаторов
+        </h3>
+        <p style={{ margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: "60ch" }}>
+          Placeholder: контакты организаторов. Email, телеграм и другие способы связи будут добавлены позже.
+        </p>
+      </section>
+
+      <section
+        id="registration"
+        style={{
+          padding: "4rem 5%",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <h2 style={{ margin: "0 0 1.5rem", color: "rgba(255,255,255,0.9)", fontSize: "1.75rem" }}>
+          Регистрация
+        </h2>
+        <p style={{ margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, maxWidth: "60ch" }}>
+          Placeholder: форма регистрации. Жду формы от Камиллы.
+        </p>
+      </section>
     </div>
+    </>
   );
 }
