@@ -260,6 +260,13 @@ export default function App() {
   const [faqOpenIndex, setFaqOpenIndex] = useState<number | null>(null);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [navOpen, setNavOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 60);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <>
@@ -280,20 +287,28 @@ export default function App() {
           alignItems: "center",
         }}
       >
-      {/* Header — sticky; mobile: hamburger menu */}
-      <nav
+      {/* Header — sticky; shrinks and slides in when scrolled */}
+      <motion.nav
+        initial={false}
+        animate={{
+          minHeight: scrolled ? (isMobile ? 48 : 56) : isMobile ? 56 : 72,
+          paddingTop: scrolled ? (isMobile ? "0.35rem" : "0.5rem") : isMobile ? "0.5rem" : "0.875rem",
+          paddingBottom: scrolled ? (isMobile ? "0.35rem" : "0.5rem") : isMobile ? "0.5rem" : "0.875rem",
+          paddingLeft: scrolled ? "4%" : isMobile ? "4%" : "5%",
+          paddingRight: scrolled ? "4%" : isMobile ? "4%" : "5%",
+          y: scrolled ? 0 : -6,
+        }}
+        transition={{ type: "spring", stiffness: 400, damping: 35 }}
         style={{
           position: "sticky",
           top: 0,
           zIndex: 10,
           flexShrink: 0,
-          minHeight: isMobile ? 56 : 72,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: "1rem",
-          padding: isMobile ? "0.5rem 4%" : "0.875rem 5%",
           background: "rgba(10, 10, 10, 0.85)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
@@ -303,10 +318,13 @@ export default function App() {
         }}
       >
         <a href="#" style={{ display: "flex", alignItems: "center", textDecoration: "none" }} onClick={() => isMobile && setNavOpen(false)}>
-          <img
+          <motion.img
             src={logoCoffeeJam2Url}
             alt="Coffee Jam 2"
-            style={{ height: isMobile ? 36 : 44, width: "auto", display: "block" }}
+            initial={false}
+            animate={{ height: scrolled ? (isMobile ? 30 : 36) : isMobile ? 36 : 44 }}
+            transition={{ type: "spring", stiffness: 400, damping: 35 }}
+            style={{ width: "auto", display: "block" }}
           />
         </a>
 
@@ -435,7 +453,7 @@ export default function App() {
             </a>
           </div>
         )}
-      </nav>
+      </motion.nav>
 
       {/* Hero — desktop: logo left, canvas right; mobile: model center, logo bottom, non-interactive */}
       <div
