@@ -43,7 +43,11 @@ export default defineConfig([
 ])
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules.
+
+### npm: предупреждение про `node-domexception`
+
+При `npm install` может появляться предупреждение: `node-domexception@1.0.0` deprecated. Оно идёт из транзитивной зависимости (инструменты сборки → node-fetch/formdata-polyfill → fetch-blob → node-domexception). На работу приложения и сборку не влияет, его можно игнорировать.
 
 ```js
 // eslint.config.js
